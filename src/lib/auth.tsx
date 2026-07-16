@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!sessionReady) return;
     if (!session) {
       setCompany(null);
       setCompanyReady(true);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session, sessionReady]);
 
   const refreshCompany = async () => setCompany(await getMyCompany());
   const signOut = async () => {
