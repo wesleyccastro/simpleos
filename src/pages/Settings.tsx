@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useToast } from '../components/toast';
 import { Field, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
@@ -21,6 +21,8 @@ export default function Settings() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  const blobUrlRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!company) return;
     setName(company.name);
@@ -34,6 +36,12 @@ export default function Settings() {
     setLogoPreview(company.logoUrl);
   }, [company]);
 
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+    };
+  }, []);
+
   if (!company) return <Spinner />;
 
   function toggleMethod(m: string) {
@@ -41,8 +49,10 @@ export default function Settings() {
   }
 
   function pickLogo(file: File | null) {
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+    blobUrlRef.current = file ? URL.createObjectURL(file) : null;
     setLogoFile(file);
-    setLogoPreview(file ? URL.createObjectURL(file) : company?.logoUrl ?? null);
+    setLogoPreview(blobUrlRef.current ?? company?.logoUrl ?? null);
   }
 
   async function submit(e: FormEvent) {
