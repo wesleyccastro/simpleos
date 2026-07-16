@@ -45,18 +45,20 @@ create table public.quotes (
   share_token uuid not null unique default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (company_id, number)
+  unique (company_id, number),
+  unique (id, company_id)
 );
 create index quotes_company_created_idx on public.quotes (company_id, created_at desc);
 
 create table public.quote_items (
   id uuid primary key default gen_random_uuid(),
-  quote_id uuid not null references public.quotes(id) on delete cascade,
+  quote_id uuid not null,
   company_id uuid not null references public.companies(id) on delete cascade,
   description text not null,
   quantity numeric(10,2) not null default 1,
   unit_price numeric(12,2) not null default 0,
-  position int not null default 0
+  position int not null default 0,
+  foreign key (quote_id, company_id) references public.quotes (id, company_id) on delete cascade
 );
 create index quote_items_quote_idx on public.quote_items (quote_id);
 
@@ -112,7 +114,7 @@ as $$
     'quote', to_jsonb(q) - 'company_id',
     'items', (
       select coalesce(jsonb_agg(to_jsonb(i) order by i.position), '[]'::jsonb)
-      from public.quote_items i where i.quote_id = q.id
+      from public.quote_items i where i.quote_id = q.id and i.company_id = q.company_id
     ),
     'company', jsonb_build_object(
       'name', c.name,
