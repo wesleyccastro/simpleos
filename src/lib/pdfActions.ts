@@ -2,9 +2,14 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { buildQuoteDocDefinition, type QuotePdfData } from './pdf';
 
-// Compatível com as duas formas de export do vfs_fonts (0.2.x)
-const fonts = pdfFonts as unknown as { vfs?: Record<string, string>; pdfMake?: { vfs: Record<string, string> } };
-pdfMake.vfs = fonts.vfs ?? fonts.pdfMake?.vfs ?? {};
+// vfs_fonts (pdfmake 0.2.x atual) exporta o mapa de fontes diretamente;
+// versões antigas expunham .vfs ou .pdfMake.vfs — cobrimos as três formas.
+const fonts = pdfFonts as unknown as {
+  vfs?: Record<string, string>;
+  pdfMake?: { vfs: Record<string, string> };
+  default?: Record<string, string>;
+};
+pdfMake.vfs = fonts.vfs ?? fonts.pdfMake?.vfs ?? fonts.default ?? (pdfFonts as unknown as Record<string, string>);
 
 export async function fetchImageAsDataUrl(url: string): Promise<string | undefined> {
   try {
