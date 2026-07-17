@@ -44,6 +44,7 @@ export default function Login() {
   return (
     <div className="center-page">
       <div className="brand">
+        <img className="brand-icon" src="/favicon.svg" alt="" />
         <div className="logo">Simples OS</div>
         <div className="tagline">Orçamentos para oficinas, sem complicação</div>
       </div>
