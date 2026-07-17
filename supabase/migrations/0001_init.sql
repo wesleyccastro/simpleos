@@ -1,4 +1,4 @@
--- SimpleOS: schema inicial (multi-tenant por company, RLS por dono)
+-- Simples OS: schema inicial (multi-tenant por company, RLS por dono)
 
 create table public.companies (
   id uuid primary key default gen_random_uuid(),

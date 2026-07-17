@@ -1,4 +1,4 @@
-# SimpleOS — Orçamentos de Oficina (Design)
+# Simples OS — Orçamentos de Oficina (Design)
 
 **Data:** 2026-07-16
 **Status:** Aprovado pelo usuário

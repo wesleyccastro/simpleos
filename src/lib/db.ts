@@ -230,6 +230,18 @@ export async function setQuoteStatus(id: string, status: QuoteStatus): Promise<v
   if (error) throw error;
 }
 
+export async function deleteQuote(id: string, companyId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('quotes')
+    .delete()
+    .eq('id', id)
+    .eq('company_id', companyId)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Orçamento não encontrado ou sem permissão para excluir.');
+}
+
 export async function duplicateQuote(companyId: string, sourceId: string): Promise<Quote> {
   const src = await getQuote(sourceId);
   return createQuote(companyId, {

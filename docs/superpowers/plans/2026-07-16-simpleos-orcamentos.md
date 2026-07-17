@@ -1,4 +1,4 @@
-# SimpleOS — Plano de Implementação
+# Simples OS — Plano de Implementação
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -130,7 +130,7 @@ export default defineConfig({
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1e3a5f" />
-    <title>SimpleOS — Orçamentos</title>
+    <title>Simples OS — Orçamentos</title>
   </head>
   <body>
     <div id="root"></div>
@@ -273,7 +273,7 @@ export default function App() {
   return (
     <div className="center-page">
       <div className="brand">
-        <div className="logo">SimpleOS</div>
+        <div className="logo">Simples OS</div>
         <div className="tagline">Orçamentos para oficinas</div>
       </div>
     </div>
@@ -312,7 +312,7 @@ git commit -m "chore: scaffold Vite + React + TS + Vitest com design system"
 - [ ] **Step 1: Criar `supabase/migrations/0001_init.sql`**
 
 ```sql
--- SimpleOS: schema inicial (multi-tenant por company, RLS por dono)
+-- Simples OS: schema inicial (multi-tenant por company, RLS por dono)
 
 create table public.companies (
   id uuid primary key default gen_random_uuid(),
@@ -1771,7 +1771,7 @@ export default function Login() {
   return (
     <div className="center-page">
       <div className="brand">
-        <div className="logo">SimpleOS</div>
+        <div className="logo">Simples OS</div>
         <div className="tagline">Orçamentos para oficinas, sem complicação</div>
       </div>
       <form className="card" onSubmit={submit}>
@@ -3285,7 +3285,7 @@ git commit -m "feat: pagina publica do orcamento com download de PDF"
 - [ ] **Step 1: Criar `README.md`**
 
 ```markdown
-# SimpleOS — Orçamentos para Oficinas
+# Simples OS — Orçamentos para Oficinas
 
 App web mobile-first e multi-tenant para oficinas criarem orçamentos, gerarem PDF e enviarem por WhatsApp.
 

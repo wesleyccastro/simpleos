@@ -1,4 +1,4 @@
--- SimpleOS: privilégios mínimos da Data API.
+-- Simples OS: privilégios mínimos da Data API.
 -- Execute depois de 0002_quote_integrity.sql.
 
 grant usage on schema public to authenticated;

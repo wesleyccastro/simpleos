@@ -44,7 +44,7 @@ export default function Login() {
   return (
     <div className="center-page">
       <div className="brand">
-        <div className="logo">SimpleOS</div>
+        <div className="logo">Simples OS</div>
         <div className="tagline">Orçamentos para oficinas, sem complicação</div>
       </div>
       <form className="card" onSubmit={submit}>

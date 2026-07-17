@@ -1,4 +1,4 @@
-# SimpleOS — Orçamentos para Oficinas
+# Simples OS — Orçamentos para Oficinas
 
 App web mobile-first e multi-tenant para oficinas criarem orçamentos, gerarem PDF e enviarem por WhatsApp.
 

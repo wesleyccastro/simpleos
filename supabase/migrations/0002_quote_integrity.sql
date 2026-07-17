@@ -1,4 +1,4 @@
--- SimpleOS: integridade de valores e gravação transacional de orçamentos.
+-- Simples OS: integridade de valores e gravação transacional de orçamentos.
 -- Execute depois de 0001_init.sql.
 
 do $$

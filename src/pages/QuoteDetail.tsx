@@ -4,7 +4,7 @@ import { useToast } from '../components/toast';
 import { Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { PAYMENT_METHOD_LABELS, STATUSES, STATUS_ORDER } from '../lib/constants';
-import { duplicateQuote, getQuote, setQuoteStatus } from '../lib/db';
+import { deleteQuote, duplicateQuote, getQuote, setQuoteStatus } from '../lib/db';
 import { calcSubtotal, formatBRL, formatInstallments } from '../lib/money';
 import { canShareFiles, fetchImageAsDataUrl, openQuotePdf, shareQuotePdf } from '../lib/pdfActions';
 import type { QuotePdfData } from '../lib/pdf';
@@ -20,6 +20,8 @@ export default function QuoteDetail() {
   const toast = useToast();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -32,6 +34,20 @@ export default function QuoteDetail() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!confirmDeleteOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !deleting) setConfirmDeleteOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [confirmDeleteOpen, deleting]);
 
   if (!company || !quote) return <Spinner />;
 
@@ -96,6 +112,18 @@ export default function QuoteDetail() {
       toast.error('Não foi possível duplicar.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function removeQuote() {
+    setDeleting(true);
+    try {
+      await deleteQuote(quote!.id, company!.id);
+      toast.success(`Orçamento nº ${quote!.number} excluído.`);
+      navigate('/', { replace: true });
+    } catch {
+      toast.error('Não foi possível excluir o orçamento. Tente novamente.');
+      setDeleting(false);
     }
   }
 
@@ -219,6 +247,48 @@ export default function QuoteDetail() {
           📋 Duplicar
         </button>
       </div>
+
+      <button className="delete-quote-trigger" onClick={() => setConfirmDeleteOpen(true)}>
+        <span aria-hidden="true">🗑️</span> Excluir orçamento
+      </button>
+
+      {confirmDeleteOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deleting) setConfirmDeleteOpen(false);
+          }}
+        >
+          <section
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-quote-title"
+            aria-describedby="delete-quote-description"
+          >
+            <div className="confirm-modal-icon" aria-hidden="true">🗑️</div>
+            <h2 id="delete-quote-title">Excluir este orçamento?</h2>
+            <p id="delete-quote-description">
+              O orçamento nº {quote.number}, de <strong>{quote.customerName}</strong>, será excluído permanentemente junto com seus itens.
+            </p>
+            <p className="confirm-warning">Esta ação não pode ser desfeita.</p>
+            <div className="confirm-actions">
+              <button
+                className="btn secondary"
+                autoFocus
+                disabled={deleting}
+                onClick={() => setConfirmDeleteOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button className="btn danger-solid" disabled={deleting} onClick={() => void removeQuote()}>
+                {deleting ? 'Excluindo…' : 'Sim, excluir'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }
