@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildQuoteDocDefinition } from './pdf';
-import type { PublicCompany, Quote } from './types';
+import type { PublicCompany, Quote, QuoteItem } from './types';
 
 const company: PublicCompany = {
   name: 'Oficina Teste',
@@ -29,8 +29,8 @@ const quote: Quote = {
   shareToken: 'tok',
   createdAt: '2026-07-16T12:00:00Z',
   items: [
-    { description: 'Troca de óleo', quantity: 1, unitPriceCents: 15000 },
-    { description: 'Pastilha de freio', quantity: 2, unitPriceCents: 67500 },
+    { kind: 'servico', description: 'Troca de óleo', quantity: 1, unitPriceCents: 15000 },
+    { kind: 'produto', description: 'Pastilha de freio', quantity: 2, unitPriceCents: 67500 },
   ],
 };
 
@@ -63,5 +63,18 @@ describe('buildQuoteDocDefinition', () => {
   });
   it('não inclui imagem quando não há logo', () => {
     expect(json).not.toContain('"image"');
+  });
+  it('separa produtos e serviços, produtos primeiro', () => {
+    expect(json).toContain('Produtos');
+    expect(json).toContain('Serviços');
+    expect(json.indexOf('Pastilha de freio')).toBeLessThan(json.indexOf('Troca de óleo'));
+    expect(json.indexOf('"Produtos"')).toBeLessThan(json.indexOf('"Serviços"'));
+  });
+  it('não mostra subtítulos de grupo quando só há um tipo de item', () => {
+    const onlyServices: QuoteItem[] = [{ kind: 'servico', description: 'Troca de óleo', quantity: 1, unitPriceCents: 15000 }];
+    const def2 = buildQuoteDocDefinition({ quote: { ...quote, items: onlyServices }, company });
+    const json2 = JSON.stringify(def2);
+    expect(json2).not.toContain('"Produtos"');
+    expect(json2).not.toContain('"Serviços"');
   });
 });

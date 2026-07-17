@@ -135,6 +135,7 @@ function rowToQuote(r: any, itemRows: any[] = []): Quote {
       .sort((a, b) => a.position - b.position)
       .map((i) => ({
         id: i.id,
+        kind: (i.kind as 'produto' | 'servico') ?? 'servico',
         description: i.description,
         quantity: Number(i.quantity),
         unitPriceCents: toCents(Number(i.unit_price)),
@@ -194,6 +195,7 @@ function payloadToQuoteRow(p: QuotePayload): Record<string, unknown> {
 
 function payloadToRpcItemRows(p: QuotePayload) {
   return p.items.map((it, i) => ({
+    kind: it.kind,
     description: it.description,
     quantity: it.quantity,
     unit_price: fromCents(it.unitPriceCents),
@@ -254,7 +256,7 @@ export async function duplicateQuote(companyId: string, sourceId: string): Promi
     paymentTerms: src.paymentTerms,
     notes: src.notes,
     totalCents: src.totalCents,
-    items: src.items.map(({ description, quantity, unitPriceCents }) => ({ description, quantity, unitPriceCents })),
+    items: src.items.map(({ kind, description, quantity, unitPriceCents }) => ({ kind, description, quantity, unitPriceCents })),
   });
 }
 

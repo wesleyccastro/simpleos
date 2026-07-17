@@ -37,11 +37,6 @@ export async function fetchImageAsDataUrl(url: string): Promise<string | undefin
   }
 }
 
-export async function openQuotePdf(data: QuotePdfData): Promise<void> {
-  const pdfMake = await loadPdfMake();
-  pdfMake.createPdf(buildQuoteDocDefinition(data)).open();
-}
-
 export async function downloadQuotePdf(data: QuotePdfData): Promise<void> {
   const pdfMake = await loadPdfMake();
   pdfMake.createPdf(buildQuoteDocDefinition(data)).download(`orcamento-${data.quote.number}.pdf`);

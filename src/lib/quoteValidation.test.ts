@@ -12,7 +12,7 @@ const valid: QuotePayload = {
   paymentTerms: { methods: ['pix'], installments: 1, notes: '' },
   notes: null,
   totalCents: 9500,
-  items: [{ description: 'Serviço', quantity: 1, unitPriceCents: 10000 }],
+  items: [{ kind: 'servico', description: 'Serviço', quantity: 1, unitPriceCents: 10000 }],
 };
 
 describe('quoteValidationErrors', () => {
@@ -31,7 +31,7 @@ describe('quoteValidationErrors', () => {
       customerName: ' ',
       vehicleKm: -1,
       totalCents: 100,
-      items: [{ description: '', quantity: 0, unitPriceCents: -1 }],
+      items: [{ kind: 'servico', description: '', quantity: 0, unitPriceCents: -1 }],
     });
     expect(errors.length).toBeGreaterThanOrEqual(5);
   });

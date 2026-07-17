@@ -18,6 +18,7 @@ export function quoteValidationErrors(payload: QuotePayload): string[] {
   payload.items.forEach((item, index) => {
     const label = `Item ${index + 1}`;
     if (!item.description.trim()) errors.push(`${label}: informe a descrição.`);
+    if (item.kind !== 'produto' && item.kind !== 'servico') errors.push(`${label}: informe se é produto ou serviço.`);
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) errors.push(`${label}: a quantidade deve ser maior que zero.`);
     if (!Number.isInteger(item.unitPriceCents) || item.unitPriceCents < 0) {
       errors.push(`${label}: o preço não pode ser negativo.`);

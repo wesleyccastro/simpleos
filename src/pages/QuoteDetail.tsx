@@ -6,9 +6,9 @@ import { useAuth } from '../lib/auth';
 import { PAYMENT_METHOD_LABELS, STATUSES, STATUS_ORDER } from '../lib/constants';
 import { deleteQuote, duplicateQuote, getQuote, setQuoteStatus } from '../lib/db';
 import { calcSubtotal, formatBRL, formatInstallments } from '../lib/money';
-import { canShareFiles, fetchImageAsDataUrl, openQuotePdf, shareQuotePdf } from '../lib/pdfActions';
+import { canShareFiles, fetchImageAsDataUrl, quotePdfBlob, shareQuotePdf } from '../lib/pdfActions';
 import type { QuotePdfData } from '../lib/pdf';
-import { toPublicCompany, type Quote, type QuoteStatus } from '../lib/types';
+import { sortItemsByKind, toPublicCompany, type Quote, type QuoteStatus } from '../lib/types';
 import { buildQuoteMessage, buildWaMeUrl } from '../lib/whatsapp';
 
 export default function QuoteDetail() {
@@ -22,6 +22,7 @@ export default function QuoteDetail() {
   const [busy, setBusy] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -49,6 +50,21 @@ export default function QuoteDetail() {
     };
   }, [confirmDeleteOpen, deleting]);
 
+  useEffect(() => {
+    if (!pdfPreviewUrl) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closePdfPreview();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfPreviewUrl]);
+
   if (!company || !quote) return <Spinner />;
 
   const publicUrl = `${window.location.origin}/o/${quote.shareToken}`;
@@ -62,12 +78,18 @@ export default function QuoteDetail() {
   async function viewPdf() {
     setBusy(true);
     try {
-      await openQuotePdf(await buildPdfData());
+      const blob = await quotePdfBlob(await buildPdfData());
+      setPdfPreviewUrl(URL.createObjectURL(blob));
     } catch {
       toast.error('Não foi possível gerar o PDF.');
     } finally {
       setBusy(false);
     }
+  }
+
+  function closePdfPreview() {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
   }
 
   function sendWhatsApp() {
@@ -195,7 +217,7 @@ export default function QuoteDetail() {
 
       <h2>Itens</h2>
       <div className="card">
-        {quote.items.map((it, i) => (
+        {sortItemsByKind(quote.items).map((it, i) => (
           <div
             key={i}
             style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}
@@ -285,6 +307,27 @@ export default function QuoteDetail() {
               <button className="btn danger-solid" disabled={deleting} onClick={() => void removeQuote()}>
                 {deleting ? 'Excluindo…' : 'Sim, excluir'}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {pdfPreviewUrl && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closePdfPreview();
+          }}
+        >
+          <section className="item-modal pdf-modal" role="dialog" aria-modal="true" aria-labelledby="pdf-preview-title">
+            <div className="modal-handle" aria-hidden="true" />
+            <header className="modal-header">
+              <h3 id="pdf-preview-title">Orçamento nº {quote.number}</h3>
+              <button className="modal-close" aria-label="Fechar" onClick={closePdfPreview}>×</button>
+            </header>
+            <div className="modal-content pdf-modal-content">
+              <iframe src={pdfPreviewUrl} title={`Orçamento nº ${quote.number}`} />
             </div>
           </section>
         </div>

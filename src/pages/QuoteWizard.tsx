@@ -3,13 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../components/toast';
 import { Field, MoneyInput, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { PAYMENT_METHOD_LABELS } from '../lib/constants';
+import { ITEM_KIND_LABELS, PAYMENT_METHOD_LABELS } from '../lib/constants';
 import { createQuote, getQuote, listCatalog, updateQuote, type QuotePayload } from '../lib/db';
 import { calcSubtotal, calcTotal, formatBRL, formatInstallments } from '../lib/money';
 import { formatPlate } from '../lib/plate';
-import type { CatalogItem } from '../lib/types';
+import { sortItemsByKind, type CatalogItem, type ItemKind } from '../lib/types';
 
 interface DraftItem {
+  kind: ItemKind;
   description: string;
   quantity: number;
   unitPriceCents: number;
@@ -42,6 +43,7 @@ export default function QuoteWizard() {
   const [catalogSearch, setCatalogSearch] = useState('');
   const [freeDesc, setFreeDesc] = useState('');
   const [freePriceCents, setFreePriceCents] = useState(0);
+  const [freeKind, setFreeKind] = useState<ItemKind>('servico');
   const catalogSearchRef = useRef<HTMLInputElement>(null);
 
   // Passo 3 — pagamento
@@ -67,7 +69,7 @@ export default function QuoteWizard() {
         setVehicleModel(q.vehicleModel ?? '');
         setVehiclePlate(q.vehiclePlate ?? '');
         setVehicleKm(q.vehicleKm != null ? String(q.vehicleKm) : '');
-        setItems(q.items.map(({ description, quantity, unitPriceCents }) => ({ description, quantity, unitPriceCents })));
+        setItems(q.items.map(({ kind, description, quantity, unitPriceCents }) => ({ kind, description, quantity, unitPriceCents })));
         setMethods(q.paymentTerms.methods);
         setParcelas(q.paymentTerms.installments);
         setNotes(q.notes ?? '');
@@ -113,7 +115,7 @@ export default function QuoteWizard() {
           : true;
 
   function addCatalogItem(c: CatalogItem) {
-    setItems((prev) => [...prev, { description: c.description, quantity: 1, unitPriceCents: c.defaultPriceCents }]);
+    setItems((prev) => [...prev, { kind: c.kind, description: c.description, quantity: 1, unitPriceCents: c.defaultPriceCents }]);
     setItemModalOpen(false);
     setCatalogSearch('');
     toast.success('Item adicionado.');
@@ -121,9 +123,10 @@ export default function QuoteWizard() {
 
   function addFreeItem() {
     if (!freeDesc.trim()) return;
-    setItems((prev) => [...prev, { description: freeDesc.trim(), quantity: 1, unitPriceCents: freePriceCents }]);
+    setItems((prev) => [...prev, { kind: freeKind, description: freeDesc.trim(), quantity: 1, unitPriceCents: freePriceCents }]);
     setFreeDesc('');
     setFreePriceCents(0);
+    setFreeKind('servico');
     setItemModalOpen(false);
     toast.success('Item adicionado.');
   }
@@ -232,7 +235,10 @@ export default function QuoteWizard() {
             <div key={i} className="card quote-item-card">
               <div className="quote-item-heading">
                 <span className="item-index">{i + 1}</span>
-                <strong>{it.description}</strong>
+                <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <strong>{it.description}</strong>
+                  <small className="muted">{ITEM_KIND_LABELS[it.kind]}</small>
+                </span>
                 <button className="item-remove" aria-label={`Remover ${it.description}`} onClick={() => removeItem(i)}>
                   ×
                 </button>
@@ -346,6 +352,12 @@ export default function QuoteWizard() {
 
                   {tab === 'livre' && (
                     <div role="tabpanel" className="free-item-form">
+                      <Field label="Tipo">
+                        <select value={freeKind} onChange={(e) => setFreeKind(e.target.value as ItemKind)}>
+                          <option value="servico">Serviço</option>
+                          <option value="produto">Produto (peça)</option>
+                        </select>
+                      </Field>
                       <Field label="Descrição do item *">
                         <input
                           autoFocus
@@ -424,7 +436,7 @@ export default function QuoteWizard() {
           <h2 style={{ marginTop: 0 }}>
             {customerName} {vehicleModel && <span className="muted small">· {vehicleModel}</span>}
           </h2>
-          {items.map((it, i) => (
+          {sortItemsByKind(items).map((it, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
               <span>
                 {it.quantity}x {it.description}

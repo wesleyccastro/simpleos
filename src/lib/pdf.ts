@@ -1,7 +1,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { PAYMENT_METHOD_LABELS } from './constants';
 import { calcSubtotal, formatBRL, formatInstallments } from './money';
-import type { PublicCompany, Quote } from './types';
+import type { PublicCompany, Quote, QuoteItem } from './types';
 
 export interface QuotePdfData {
   quote: Quote;
@@ -38,12 +38,38 @@ export function buildQuoteDocDefinition({ quote, company, logoDataUrl }: QuotePd
     alignment,
   });
 
-  const itemRows: Content[][] = quote.items.map((it) => [
-    { text: it.description, fontSize: 10 },
-    { text: String(it.quantity), alignment: 'center', fontSize: 10 },
-    { text: formatBRL(it.unitPriceCents), alignment: 'right', fontSize: 10 },
-    { text: formatBRL(Math.round(it.quantity * it.unitPriceCents)), alignment: 'right', fontSize: 10 },
-  ]);
+  const toRows = (items: QuoteItem[]): Content[][] =>
+    items.map((it) => [
+      { text: it.description, fontSize: 10 },
+      { text: String(it.quantity), alignment: 'center', fontSize: 10 },
+      { text: formatBRL(it.unitPriceCents), alignment: 'right', fontSize: 10 },
+      { text: formatBRL(Math.round(it.quantity * it.unitPriceCents)), alignment: 'right', fontSize: 10 },
+    ]);
+
+  const itemsTable = (items: QuoteItem[]): Content => ({
+    table: {
+      headerRows: 1,
+      widths: ['*', 40, 75, 85],
+      body: [[th('Descrição'), th('Qtd', 'center'), th('Unitário', 'right'), th('Subtotal', 'right')], ...toRows(items)],
+    },
+    layout: 'lightHorizontalLines',
+  });
+
+  // Produtos primeiro, depois serviços — nessa ordem na impressão.
+  const products = quote.items.filter((it) => it.kind === 'produto');
+  const services = quote.items.filter((it) => it.kind === 'servico');
+  const hasBothKinds = products.length > 0 && services.length > 0;
+  const groupTitle = (text: string): Content => ({ text, fontSize: 10, bold: true, color: primary, margin: [0, 8, 0, 4] });
+
+  const itemsContent: Content[] = [];
+  if (products.length) {
+    if (hasBothKinds) itemsContent.push(groupTitle('Produtos'));
+    itemsContent.push(itemsTable(products));
+  }
+  if (services.length) {
+    if (hasBothKinds) itemsContent.push(groupTitle('Serviços'));
+    itemsContent.push(itemsTable(services));
+  }
 
   const totalRows: Content[] = [];
   if (quote.discountCents !== 0) {
@@ -103,14 +129,7 @@ export function buildQuoteDocDefinition({ quote, company, logoDataUrl }: QuotePd
     ...(quote.customerPhone ? [{ text: `WhatsApp: ${quote.customerPhone}`, fontSize: 10 } as Content] : []),
     ...(vehicle ? [sectionTitle('Veículo'), { text: vehicle, fontSize: 10 } as Content] : []),
     sectionTitle('Itens'),
-    {
-      table: {
-        headerRows: 1,
-        widths: ['*', 40, 75, 85],
-        body: [[th('Descrição'), th('Qtd', 'center'), th('Unitário', 'right'), th('Subtotal', 'right')], ...itemRows],
-      },
-      layout: 'lightHorizontalLines',
-    },
+    ...itemsContent,
     { stack: totalRows, margin: [0, 10, 0, 0] },
     ...(paymentLines.length ? [sectionTitle('Pagamento'), { text: paymentLines.join('\n'), fontSize: 10 } as Content] : []),
     ...(quote.notes ? [sectionTitle('Observações'), { text: quote.notes, fontSize: 10 } as Content] : []),

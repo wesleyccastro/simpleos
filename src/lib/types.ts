@@ -31,9 +31,11 @@ export function toPublicCompany(c: Company): PublicCompany {
   };
 }
 
+export type ItemKind = 'produto' | 'servico';
+
 export interface CatalogItem {
   id: string;
-  kind: 'produto' | 'servico';
+  kind: ItemKind;
   description: string;
   defaultPriceCents: number;
   active: boolean;
@@ -47,9 +49,16 @@ export interface PaymentTerms {
 
 export interface QuoteItem {
   id?: string;
+  kind: ItemKind;
   description: string;
   quantity: number;
   unitPriceCents: number;
+}
+
+/** Produtos primeiro, depois serviços — ordem usada na impressão do orçamento. */
+export function sortItemsByKind<T extends { kind: ItemKind }>(items: T[]): T[] {
+  const order: Record<ItemKind, number> = { produto: 0, servico: 1 };
+  return [...items].sort((a, b) => order[a.kind] - order[b.kind]);
 }
 
 export interface Quote {
@@ -80,5 +89,5 @@ export interface QuotePayload {
   paymentTerms: PaymentTerms;
   notes: string | null;
   totalCents: number;
-  items: { description: string; quantity: number; unitPriceCents: number }[];
+  items: { kind: ItemKind; description: string; quantity: number; unitPriceCents: number }[];
 }

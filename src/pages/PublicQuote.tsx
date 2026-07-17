@@ -6,6 +6,7 @@ import { PAYMENT_METHOD_LABELS } from '../lib/constants';
 import { getPublicQuote, type PublicQuote as PublicQuoteData } from '../lib/db';
 import { calcSubtotal, formatBRL, formatInstallments } from '../lib/money';
 import { downloadQuotePdf, fetchImageAsDataUrl } from '../lib/pdfActions';
+import { sortItemsByKind } from '../lib/types';
 
 export default function PublicQuote() {
   const { token } = useParams();
@@ -77,7 +78,7 @@ export default function PublicQuote() {
       </p>
 
       <div className="card">
-        {quote.items.map((it, i) => (
+        {sortItemsByKind(quote.items).map((it, i) => (
           <div
             key={i}
             style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}

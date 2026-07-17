@@ -22,6 +22,8 @@ App web mobile-first e multi-tenant para oficinas criarem orçamentos, gerarem P
    - `supabase/migrations/0001_init.sql`
    - `supabase/migrations/0002_quote_integrity.sql`
    - `supabase/migrations/0003_api_privileges.sql`
+   - `supabase/migrations/0004_quote_deletion.sql`
+   - `supabase/migrations/0005_quote_item_kind.sql`
 4. Copie `.env.example` para `.env` e preencha com a URL e a anon key do projeto (Settings → API).
 5. `npm install`
 6. `npm run dev` → http://localhost:5173

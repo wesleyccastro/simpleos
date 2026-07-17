@@ -1,4 +1,4 @@
-import type { QuoteStatus } from './types';
+import type { ItemKind, QuoteStatus } from './types';
 
 export const STATUSES: Record<QuoteStatus, { label: string; color: string }> = {
   pendente: { label: 'Pendente', color: '#b45309' },
@@ -9,6 +9,11 @@ export const STATUSES: Record<QuoteStatus, { label: string; color: string }> = {
 };
 
 export const STATUS_ORDER: QuoteStatus[] = ['pendente', 'aprovado', 'em_andamento', 'concluido', 'recusado'];
+
+export const ITEM_KIND_LABELS: Record<ItemKind, string> = {
+  produto: 'Produto',
+  servico: 'Serviço',
+};
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pix: 'Pix',
