@@ -1,15 +1,25 @@
-import pdfMake from 'pdfmake/build/pdfmake';
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import { buildQuoteDocDefinition, type QuotePdfData } from './pdf';
 
-// vfs_fonts (pdfmake 0.2.x atual) exporta o mapa de fontes diretamente;
-// versões antigas expunham .vfs ou .pdfMake.vfs — cobrimos as três formas.
-const fonts = pdfFonts as unknown as {
-  vfs?: Record<string, string>;
-  pdfMake?: { vfs: Record<string, string> };
-  default?: Record<string, string>;
-};
-pdfMake.vfs = fonts.vfs ?? fonts.pdfMake?.vfs ?? fonts.default ?? (pdfFonts as unknown as Record<string, string>);
+async function createPdfMake() {
+  const [{ default: pdfMake }, pdfFonts] = await Promise.all([
+    import('pdfmake/build/pdfmake'),
+    import('pdfmake/build/vfs_fonts'),
+  ]);
+  const fonts = pdfFonts as unknown as {
+    vfs?: Record<string, string>;
+    pdfMake?: { vfs: Record<string, string> };
+    default?: Record<string, string>;
+  };
+  pdfMake.vfs = fonts.vfs ?? fonts.pdfMake?.vfs ?? fonts.default ?? (pdfFonts as unknown as Record<string, string>);
+  return pdfMake;
+}
+
+let pdfMakePromise: ReturnType<typeof createPdfMake> | null = null;
+
+function loadPdfMake() {
+  pdfMakePromise ??= createPdfMake();
+  return pdfMakePromise;
+}
 
 export async function fetchImageAsDataUrl(url: string): Promise<string | undefined> {
   try {
@@ -27,15 +37,18 @@ export async function fetchImageAsDataUrl(url: string): Promise<string | undefin
   }
 }
 
-export function openQuotePdf(data: QuotePdfData): void {
+export async function openQuotePdf(data: QuotePdfData): Promise<void> {
+  const pdfMake = await loadPdfMake();
   pdfMake.createPdf(buildQuoteDocDefinition(data)).open();
 }
 
-export function downloadQuotePdf(data: QuotePdfData): void {
+export async function downloadQuotePdf(data: QuotePdfData): Promise<void> {
+  const pdfMake = await loadPdfMake();
   pdfMake.createPdf(buildQuoteDocDefinition(data)).download(`orcamento-${data.quote.number}.pdf`);
 }
 
-export function quotePdfBlob(data: QuotePdfData): Promise<Blob> {
+export async function quotePdfBlob(data: QuotePdfData): Promise<Blob> {
+  const pdfMake = await loadPdfMake();
   return new Promise((resolve) => pdfMake.createPdf(buildQuoteDocDefinition(data)).getBlob(resolve));
 }
 

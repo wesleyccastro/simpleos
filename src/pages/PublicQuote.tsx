@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { EmptyState, Spinner } from '../components/ui';
+import { useToast } from '../components/toast';
 import { PAYMENT_METHOD_LABELS } from '../lib/constants';
 import { getPublicQuote, type PublicQuote as PublicQuoteData } from '../lib/db';
-import { calcSubtotal, formatBRL, installments as splitInstallments } from '../lib/money';
+import { calcSubtotal, formatBRL, formatInstallments } from '../lib/money';
 import { downloadQuotePdf, fetchImageAsDataUrl } from '../lib/pdfActions';
 
 export default function PublicQuote() {
   const { token } = useParams();
   const [data, setData] = useState<PublicQuoteData | null | 'erro'>(null);
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!token) {
@@ -32,13 +34,16 @@ export default function PublicQuote() {
 
   const { quote, company } = data;
   const subtotalCents = calcSubtotal(quote.items);
-  const parts = quote.paymentTerms.installments > 1 ? splitInstallments(quote.totalCents, quote.paymentTerms.installments) : null;
+  const installmentText =
+    quote.paymentTerms.installments > 1 ? formatInstallments(quote.totalCents, quote.paymentTerms.installments) : null;
 
   async function baixarPdf() {
     setBusy(true);
     try {
       const logoDataUrl = company.logoUrl ? await fetchImageAsDataUrl(company.logoUrl) : undefined;
-      downloadQuotePdf({ quote, company, logoDataUrl });
+      await downloadQuotePdf({ quote, company, logoDataUrl });
+    } catch {
+      toast.error('Não foi possível gerar o PDF. Tente novamente.');
     } finally {
       setBusy(false);
     }
@@ -107,7 +112,7 @@ export default function PublicQuote() {
             <div className="small">
               <strong>Pagamento: </strong>
               {quote.paymentTerms.methods.map((m) => PAYMENT_METHOD_LABELS[m] ?? m).join(', ')}
-              {parts && ` · ${quote.paymentTerms.installments}x de ${formatBRL(parts[0])}`}
+              {installmentText && ` · ${installmentText}`}
             </div>
           )}
           {quote.notes && <div className="small muted mt">{quote.notes}</div>}

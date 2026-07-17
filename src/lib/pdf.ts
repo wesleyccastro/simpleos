@@ -1,6 +1,6 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { PAYMENT_METHOD_LABELS } from './constants';
-import { calcSubtotal, formatBRL, installments } from './money';
+import { calcSubtotal, formatBRL, formatInstallments } from './money';
 import type { PublicCompany, Quote } from './types';
 
 export interface QuotePdfData {
@@ -73,10 +73,7 @@ export function buildQuoteDocDefinition({ quote, company, logoDataUrl }: QuotePd
   const paymentLines: string[] = [];
   if (methods) paymentLines.push(`Formas de pagamento: ${methods}`);
   if (quote.paymentTerms.installments > 1) {
-    const parts = installments(quote.totalCents, quote.paymentTerms.installments);
-    const last = parts[parts.length - 1];
-    const suffix = last !== parts[0] ? ` (última de ${formatBRL(last)})` : '';
-    paymentLines.push(`Parcelamento: ${quote.paymentTerms.installments}x de ${formatBRL(parts[0])}${suffix}`);
+    paymentLines.push(`Parcelamento: ${formatInstallments(quote.totalCents, quote.paymentTerms.installments)}`);
   }
   if (quote.paymentTerms.notes) paymentLines.push(quote.paymentTerms.notes);
 

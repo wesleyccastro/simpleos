@@ -18,6 +18,7 @@ const emptyDraft: Draft = { kind: 'servico', description: '', priceCents: 0 };
 export default function Catalog() {
   const { company } = useAuth();
   const [items, setItems] = useState<CatalogItem[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,9 +26,11 @@ export default function Catalog() {
 
   async function reload() {
     if (!company) return;
+    setLoadError(false);
     try {
       setItems(await listCatalog(company.id));
     } catch {
+      setLoadError(true);
       toast.error('Não foi possível carregar o catálogo.');
     }
   }
@@ -70,6 +73,15 @@ export default function Catalog() {
     }
   }
 
+  if (!items && loadError) {
+    return (
+      <div className="card">
+        <h1>Não foi possível carregar o catálogo</h1>
+        <p className="muted">Confira sua conexão e tente novamente.</p>
+        <button className="btn" onClick={() => void reload()}>Tentar novamente</button>
+      </div>
+    );
+  }
   if (!items) return <Spinner />;
 
   const term = search.trim().toLowerCase();

@@ -24,7 +24,7 @@ export function calcSubtotal(items: MoneyLine[]): number {
 }
 
 export function calcTotal(subtotalCents: number, discountCents: number): number {
-  return subtotalCents - discountCents;
+  return Math.max(0, subtotalCents - discountCents);
 }
 
 export function installments(totalCents: number, count: number): number[] {
@@ -33,4 +33,11 @@ export function installments(totalCents: number, count: number): number[] {
   const parts = new Array<number>(count).fill(base);
   parts[count - 1] = totalCents - base * (count - 1);
   return parts;
+}
+
+export function formatInstallments(totalCents: number, count: number): string {
+  const parts = installments(totalCents, count);
+  const last = parts[parts.length - 1];
+  const suffix = last !== parts[0] ? ` (a última de ${formatBRL(last)})` : '';
+  return `${count}x de ${formatBRL(parts[0])}${suffix}`;
 }

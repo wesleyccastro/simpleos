@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../components/toast';
 import { Field, MoneyInput, Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { PAYMENT_METHOD_LABELS } from '../lib/constants';
 import { createQuote, getQuote, listCatalog, updateQuote, type QuotePayload } from '../lib/db';
-import { calcSubtotal, calcTotal, formatBRL, installments as splitInstallments } from '../lib/money';
+import { calcSubtotal, calcTotal, formatBRL, formatInstallments } from '../lib/money';
+import { formatPlate } from '../lib/plate';
 import type { CatalogItem } from '../lib/types';
 
 interface DraftItem {
@@ -37,9 +38,11 @@ export default function QuoteWizard() {
   const [items, setItems] = useState<DraftItem[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [tab, setTab] = useState<'catalogo' | 'livre'>('catalogo');
+  const [itemModalOpen, setItemModalOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [freeDesc, setFreeDesc] = useState('');
   const [freePriceCents, setFreePriceCents] = useState(0);
+  const catalogSearchRef = useRef<HTMLInputElement>(null);
 
   // Passo 3 — pagamento
   const [methods, setMethods] = useState<string[]>([]);
@@ -79,8 +82,25 @@ export default function QuoteWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    if (!itemModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => catalogSearchRef.current?.focus(), 50);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setItemModalOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [itemModalOpen]);
+
   const subtotalCents = useMemo(() => calcSubtotal(items), [items]);
   const discountCents = discountKind === 'desconto' ? discountValueCents : -discountValueCents;
+  const rawTotalCents = subtotalCents - discountCents;
   const totalCents = calcTotal(subtotalCents, discountCents);
 
   const canContinue =
@@ -89,11 +109,13 @@ export default function QuoteWizard() {
       : step === 1
         ? items.length > 0
         : step === 2
-          ? totalCents >= 0
+          ? rawTotalCents >= 0
           : true;
 
   function addCatalogItem(c: CatalogItem) {
     setItems((prev) => [...prev, { description: c.description, quantity: 1, unitPriceCents: c.defaultPriceCents }]);
+    setItemModalOpen(false);
+    setCatalogSearch('');
     toast.success('Item adicionado.');
   }
 
@@ -102,6 +124,13 @@ export default function QuoteWizard() {
     setItems((prev) => [...prev, { description: freeDesc.trim(), quantity: 1, unitPriceCents: freePriceCents }]);
     setFreeDesc('');
     setFreePriceCents(0);
+    setItemModalOpen(false);
+    toast.success('Item adicionado.');
+  }
+
+  function openItemModal(nextTab: 'catalogo' | 'livre' = 'catalogo') {
+    setTab(nextTab);
+    setItemModalOpen(true);
   }
 
   function patchItem(index: number, patch: Partial<DraftItem>) {
@@ -119,7 +148,7 @@ export default function QuoteWizard() {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim() || null,
       vehicleModel: vehicleModel.trim() || null,
-      vehiclePlate: vehiclePlate.trim().toUpperCase() || null,
+      vehiclePlate: formatPlate(vehiclePlate) || null,
       vehicleKm: vehicleKm ? parseInt(vehicleKm, 10) : null,
       discountCents,
       paymentTerms: { methods, installments: methods.includes('credito') ? parcelas : 1, notes: '' },
@@ -170,7 +199,7 @@ export default function QuoteWizard() {
           </Field>
           <div className="row">
             <Field label="Placa">
-              <input value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value)} placeholder="ABC1D23" />
+              <input value={vehiclePlate} onChange={(e) => setVehiclePlate(formatPlate(e.target.value))} placeholder="ABC1D23" />
             </Field>
             <Field label="Km">
               <input value={vehicleKm} onChange={(e) => setVehicleKm(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
@@ -181,20 +210,40 @@ export default function QuoteWizard() {
 
       {step === 1 && (
         <>
+          {items.length === 0 && (
+            <div className="item-empty">
+              <div className="item-empty-icon" aria-hidden="true">+</div>
+              <strong>Comece adicionando um item</strong>
+              <p>Busque um produto ou serviço do catálogo, ou escreva um item personalizado.</p>
+              <button className="btn" onClick={() => openItemModal()}>
+                <span aria-hidden="true">＋</span> Adicionar primeiro item
+              </button>
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <div className="item-list-heading">
+              <span>{items.length} {items.length === 1 ? 'item adicionado' : 'itens adicionados'}</span>
+              <strong>{formatBRL(subtotalCents)}</strong>
+            </div>
+          )}
+
           {items.map((it, i) => (
-            <div key={i} className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <div key={i} className="card quote-item-card">
+              <div className="quote-item-heading">
+                <span className="item-index">{i + 1}</span>
                 <strong>{it.description}</strong>
-                <button className="btn ghost" style={{ color: 'var(--danger)' }} onClick={() => removeItem(i)}>
-                  Remover
+                <button className="item-remove" aria-label={`Remover ${it.description}`} onClick={() => removeItem(i)}>
+                  ×
                 </button>
               </div>
-              <div className="row mt">
+              <div className="row quote-item-fields">
                 <div>
                   <span className="small muted">Quantidade</span>
                   <div className="qty">
-                    <button onClick={() => patchItem(i, { quantity: Math.max(0.5, it.quantity - 1) })}>−</button>
+                    <button aria-label="Diminuir quantidade" onClick={() => patchItem(i, { quantity: Math.max(0.5, it.quantity - 1) })}>−</button>
                     <input
+                      aria-label={`Quantidade de ${it.description}`}
                       inputMode="decimal"
                       value={String(it.quantity)}
                       onChange={(e) => {
@@ -202,61 +251,119 @@ export default function QuoteWizard() {
                         patchItem(i, { quantity: Number.isFinite(v) && v > 0 ? v : it.quantity });
                       }}
                     />
-                    <button onClick={() => patchItem(i, { quantity: it.quantity + 1 })}>+</button>
+                    <button aria-label="Aumentar quantidade" onClick={() => patchItem(i, { quantity: it.quantity + 1 })}>+</button>
                   </div>
                 </div>
                 <div>
                   <span className="small muted">Preço unitário</span>
                   <MoneyInput valueCents={it.unitPriceCents} onChange={(c) => patchItem(i, { unitPriceCents: c })} />
                 </div>
+                <div className="item-line-total">
+                  <span className="small muted">Total</span>
+                  <strong>{formatBRL(Math.round(it.quantity * it.unitPriceCents))}</strong>
+                </div>
               </div>
             </div>
           ))}
 
-          <div className="chips">
-            <button className={`chip ${tab === 'catalogo' ? 'active' : ''}`} onClick={() => setTab('catalogo')}>
-              Do catálogo
+          {items.length > 0 && (
+            <button className="btn add-item-button" onClick={() => openItemModal()}>
+              <span aria-hidden="true">＋</span> Adicionar outro item
             </button>
-            <button className={`chip ${tab === 'livre' ? 'active' : ''}`} onClick={() => setTab('livre')}>
-              Texto livre
-            </button>
-          </div>
-
-          {tab === 'catalogo' && (
-            <div className="card">
-              <input
-                type="search"
-                placeholder="Buscar no catálogo…"
-                value={catalogSearch}
-                onChange={(e) => setCatalogSearch(e.target.value)}
-              />
-              <div className="mt" />
-              {filteredCatalog.length === 0 && (
-                <p className="muted small">Nenhum item no catálogo. Use a aba "Texto livre" ou cadastre em Catálogo.</p>
-              )}
-              {filteredCatalog.map((c) => (
-                <div key={c.id} className="list-row" onClick={() => addCatalogItem(c)}>
-                  <div className="grow">
-                    <div className="title">{c.description}</div>
-                    <div className="sub">{c.kind === 'servico' ? 'Serviço' : 'Produto'}</div>
-                  </div>
-                  <div className="money">{formatBRL(c.defaultPriceCents)}</div>
-                </div>
-              ))}
-            </div>
           )}
 
-          {tab === 'livre' && (
-            <div className="card">
-              <Field label="Descrição">
-                <input value={freeDesc} onChange={(e) => setFreeDesc(e.target.value)} placeholder="Ex.: Solda no escapamento" />
-              </Field>
-              <Field label="Preço (R$)">
-                <MoneyInput valueCents={freePriceCents} onChange={setFreePriceCents} />
-              </Field>
-              <button className="btn secondary" onClick={addFreeItem} disabled={!freeDesc.trim()}>
-                Adicionar item
-              </button>
+          {itemModalOpen && (
+            <div className="modal-backdrop" role="presentation" onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setItemModalOpen(false);
+            }}>
+              <section className="item-modal" role="dialog" aria-modal="true" aria-labelledby="item-modal-title">
+                <div className="modal-handle" aria-hidden="true" />
+                <header className="modal-header">
+                  <div>
+                    <h3 id="item-modal-title">Adicionar item</h3>
+                    <p>Escolha de onde vem o item do orçamento.</p>
+                  </div>
+                  <button className="modal-close" aria-label="Fechar" onClick={() => setItemModalOpen(false)}>×</button>
+                </header>
+
+                <div className="item-tabs" role="tablist" aria-label="Tipo de item">
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'catalogo'}
+                    className={tab === 'catalogo' ? 'active' : ''}
+                    onClick={() => setTab('catalogo')}
+                  >
+                    Do catálogo
+                    <small>Produtos e serviços salvos</small>
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'livre'}
+                    className={tab === 'livre' ? 'active' : ''}
+                    onClick={() => setTab('livre')}
+                  >
+                    Item personalizado
+                    <small>Descrição e preço livres</small>
+                  </button>
+                </div>
+
+                <div className="modal-content">
+                  {tab === 'catalogo' && (
+                    <div role="tabpanel">
+                      <div className="catalog-search">
+                        <span aria-hidden="true">⌕</span>
+                        <input
+                          ref={catalogSearchRef}
+                          type="search"
+                          placeholder="Buscar produto ou serviço…"
+                          aria-label="Buscar no catálogo"
+                          value={catalogSearch}
+                          onChange={(e) => setCatalogSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="catalog-results">
+                        {filteredCatalog.length === 0 && (
+                          <div className="modal-empty">
+                            <strong>{catalogSearch ? 'Nenhum item encontrado' : 'Seu catálogo está vazio'}</strong>
+                            <span>Você ainda pode adicionar um item personalizado.</span>
+                            <button className="btn secondary small" onClick={() => setTab('livre')}>Criar item personalizado</button>
+                          </div>
+                        )}
+                        {filteredCatalog.map((c) => (
+                          <button key={c.id} className="catalog-option" onClick={() => addCatalogItem(c)}>
+                            <span className={`catalog-kind ${c.kind}`}>{c.kind === 'servico' ? 'S' : 'P'}</span>
+                            <span className="catalog-option-copy">
+                              <strong>{c.description}</strong>
+                              <small>{c.kind === 'servico' ? 'Serviço' : 'Produto'}</small>
+                            </span>
+                            <strong>{formatBRL(c.defaultPriceCents)}</strong>
+                            <span className="catalog-add" aria-hidden="true">＋</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'livre' && (
+                    <div role="tabpanel" className="free-item-form">
+                      <Field label="Descrição do item *">
+                        <input
+                          autoFocus
+                          value={freeDesc}
+                          onChange={(e) => setFreeDesc(e.target.value)}
+                          placeholder="Ex.: Solda no escapamento"
+                        />
+                      </Field>
+                      <Field label="Preço unitário (R$)">
+                        <MoneyInput valueCents={freePriceCents} onChange={setFreePriceCents} />
+                      </Field>
+                      <button className="btn" onClick={addFreeItem} disabled={!freeDesc.trim()}>
+                        Adicionar ao orçamento
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
           )}
         </>
@@ -286,7 +393,7 @@ export default function QuoteWizard() {
               <select value={parcelas} onChange={(e) => setParcelas(parseInt(e.target.value, 10))}>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>
-                    {n}x de {formatBRL(splitInstallments(Math.max(totalCents, 0), n)[0])}
+                    {formatInstallments(totalCents, n)}
                   </option>
                 ))}
               </select>
@@ -304,7 +411,7 @@ export default function QuoteWizard() {
               <MoneyInput valueCents={discountValueCents} onChange={setDiscountValueCents} />
             </Field>
           </div>
-          {totalCents < 0 && <p className="small" style={{ color: 'var(--danger)' }}>O desconto não pode ser maior que o subtotal.</p>}
+          {rawTotalCents < 0 && <p className="small" style={{ color: 'var(--danger)' }}>O desconto não pode ser maior que o subtotal.</p>}
 
           <Field label="Observações (saem no PDF)">
             <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex.: Garantia de 90 dias nas peças." />
@@ -338,7 +445,7 @@ export default function QuoteWizard() {
           {methods.length > 0 && (
             <p className="small muted">
               Pagamento: {methods.map((m) => PAYMENT_METHOD_LABELS[m]).join(', ')}
-              {methods.includes('credito') && parcelas > 1 ? ` · ${parcelas}x` : ''}
+              {methods.includes('credito') && parcelas > 1 ? ` · ${formatInstallments(totalCents, parcelas)}` : ''}
             </p>
           )}
           {notes && <p className="small muted">Obs.: {notes}</p>}

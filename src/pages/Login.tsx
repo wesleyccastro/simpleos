@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/toast';
 import { Field } from '../components/ui';
+import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabaseClient';
 
 function friendlyAuthError(message: string): string {
@@ -18,6 +19,9 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { session, loading } = useAuth();
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -32,8 +36,10 @@ export default function Login() {
       toast.error(friendlyAuthError(error.message));
       return;
     }
-    navigate('/');
+    navigate(from, { replace: true });
   }
+
+  if (!loading && session) return <Navigate to={from} replace />;
 
   return (
     <div className="center-page">

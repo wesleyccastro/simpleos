@@ -18,7 +18,10 @@ App web mobile-first e multi-tenant para oficinas criarem orçamentos, gerarem P
 
 1. Crie um projeto em https://supabase.com.
 2. Em **Authentication → Sign In / Up → Email**, desative "Confirm email".
-3. No **SQL Editor**, execute `supabase/migrations/0001_init.sql`.
+3. No **SQL Editor**, execute em ordem:
+   - `supabase/migrations/0001_init.sql`
+   - `supabase/migrations/0002_quote_integrity.sql`
+   - `supabase/migrations/0003_api_privileges.sql`
 4. Copie `.env.example` para `.env` e preencha com a URL e a anon key do projeto (Settings → API).
 5. `npm install`
 6. `npm run dev` → http://localhost:5173
@@ -37,3 +40,11 @@ App web mobile-first e multi-tenant para oficinas criarem orçamentos, gerarem P
 - Toda a lógica de dinheiro em centavos inteiros (`src/lib/money.ts`)
 - Acesso a dados centralizado em `src/lib/db.ts`
 - PDF: definição pura em `src/lib/pdf.ts` (testada), efeitos em `src/lib/pdfActions.ts`
+- Criação e edição de orçamentos em RPCs transacionais; uma falha reverte cabeçalho, itens e numeração
+- `pdfmake` e suas fontes são carregados sob demanda para manter o bundle inicial menor
+
+## Estado da validação
+
+- Testes unitários e build podem ser executados sem Supabase configurado.
+- A homologação com Auth, RLS, Storage, link público e concorrência depende de um projeto Supabase e permanece pendente.
+- Ao configurar o Supabase, execute o checklist manual no fim do plano em `docs/superpowers/plans/2026-07-16-simpleos-orcamentos.md`.

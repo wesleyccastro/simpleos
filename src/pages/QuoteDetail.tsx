@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/toast';
-import { Spinner, StatusBadge } from '../components/ui';
+import { Spinner } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { PAYMENT_METHOD_LABELS, STATUSES, STATUS_ORDER } from '../lib/constants';
 import { duplicateQuote, getQuote, setQuoteStatus } from '../lib/db';
-import { calcSubtotal, formatBRL, installments as splitInstallments } from '../lib/money';
+import { calcSubtotal, formatBRL, formatInstallments } from '../lib/money';
 import { canShareFiles, fetchImageAsDataUrl, openQuotePdf, shareQuotePdf } from '../lib/pdfActions';
 import type { QuotePdfData } from '../lib/pdf';
 import { toPublicCompany, type Quote, type QuoteStatus } from '../lib/types';
@@ -46,7 +46,7 @@ export default function QuoteDetail() {
   async function viewPdf() {
     setBusy(true);
     try {
-      openQuotePdf(await buildPdfData());
+      await openQuotePdf(await buildPdfData());
     } catch {
       toast.error('Não foi possível gerar o PDF.');
     } finally {
@@ -100,7 +100,8 @@ export default function QuoteDetail() {
   }
 
   const { paymentTerms } = quote;
-  const parts = paymentTerms.installments > 1 ? splitInstallments(quote.totalCents, paymentTerms.installments) : null;
+  const installmentText =
+    paymentTerms.installments > 1 ? formatInstallments(quote.totalCents, paymentTerms.installments) : null;
 
   return (
     <>
@@ -113,38 +114,43 @@ export default function QuoteDetail() {
         </div>
       )}
 
-      <h1>
-        Orçamento nº {quote.number} <StatusBadge status={quote.status} />
-      </h1>
-      <p className="muted small" style={{ marginTop: -8 }}>
-        Criado em {new Date(quote.createdAt).toLocaleDateString('pt-BR')}
-      </p>
-
-      <button className="btn" onClick={() => void viewPdf()} disabled={busy}>
-        📄 Ver PDF
-      </button>
-      <button className="btn accent mt" onClick={sendWhatsApp}>
-        💬 Enviar link no WhatsApp
-      </button>
-      {canShareFiles() && (
-        <button className="btn secondary mt" onClick={() => void sharePdf()} disabled={busy}>
-          📎 Compartilhar PDF
-        </button>
-      )}
-
-      <h2>Status</h2>
-      <div className="chips">
-        {STATUS_ORDER.map((s) => (
-          <button
-            key={s}
-            className={`chip ${quote.status === s ? 'active' : ''}`}
-            style={quote.status === s ? { background: STATUSES[s].color, borderColor: STATUSES[s].color } : undefined}
-            onClick={() => void changeStatus(s)}
-          >
-            {STATUSES[s].label}
-          </button>
-        ))}
+      <div className="quote-heading">
+        <h1>Orçamento nº {quote.number}</h1>
+        <p className="muted small">Criado em {new Date(quote.createdAt).toLocaleDateString('pt-BR')}</p>
       </div>
+
+      <div className="quote-toolbar" aria-label="Ações do orçamento">
+        <button className="btn quote-tool" onClick={() => void viewPdf()} disabled={busy}>
+          <span aria-hidden="true">📄</span>
+          <span>Ver PDF</span>
+        </button>
+        <button className="btn accent quote-tool" onClick={sendWhatsApp}>
+          <span aria-hidden="true">💬</span>
+          <span>WhatsApp</span>
+        </button>
+        {canShareFiles() && (
+          <button className="btn secondary quote-tool" onClick={() => void sharePdf()} disabled={busy}>
+            <span aria-hidden="true">📎</span>
+            <span>Compartilhar</span>
+          </button>
+        )}
+      </div>
+
+      <label className="quote-status-field">
+        <span>
+          <i style={{ background: STATUSES[quote.status].color }} />
+          Status
+        </span>
+        <select
+          value={quote.status}
+          onChange={(e) => void changeStatus(e.target.value as QuoteStatus)}
+          aria-label="Alterar status do orçamento"
+        >
+          {STATUS_ORDER.map((s) => (
+            <option key={s} value={s}>{STATUSES[s].label}</option>
+          ))}
+        </select>
+      </label>
 
       <h2>Cliente</h2>
       <div className="card">
@@ -197,7 +203,7 @@ export default function QuoteDetail() {
             {paymentTerms.methods.length > 0 && (
               <div className="small">
                 {paymentTerms.methods.map((m) => PAYMENT_METHOD_LABELS[m] ?? m).join(', ')}
-                {parts && ` · ${paymentTerms.installments}x de ${formatBRL(parts[0])}`}
+                {installmentText && ` · ${installmentText}`}
               </div>
             )}
             {quote.notes && <div className="small muted mt">{quote.notes}</div>}

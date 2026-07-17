@@ -6,11 +6,13 @@ import { useAuth } from '../lib/auth';
 import { STATUSES, STATUS_ORDER } from '../lib/constants';
 import { listQuotes, type QuoteListRow } from '../lib/db';
 import { formatBRL } from '../lib/money';
+import { normalizePlate } from '../lib/plate';
 import type { QuoteStatus } from '../lib/types';
 
 export default function Home() {
   const { company } = useAuth();
   const [rows, setRows] = useState<QuoteListRow[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuoteStatus | 'todos'>('todos');
   const toast = useToast();
@@ -18,10 +20,25 @@ export default function Home() {
 
   useEffect(() => {
     if (!company) return;
+    setLoadError(false);
     listQuotes(company.id)
       .then(setRows)
-      .catch(() => toast.error('Não foi possível carregar os orçamentos.'));
+      .catch(() => {
+        setLoadError(true);
+        toast.error('Não foi possível carregar os orçamentos.');
+      });
   }, [company, toast]);
+
+  function retry() {
+    if (!company) return;
+    setLoadError(false);
+    listQuotes(company.id)
+      .then(setRows)
+      .catch(() => {
+        setLoadError(true);
+        toast.error('A conexão ainda não respondeu. Tente novamente.');
+      });
+  }
 
   const counts = useMemo(() => {
     const c: Partial<Record<QuoteStatus, number>> = {};
@@ -31,18 +48,28 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const plateTerm = normalizePlate(search);
     return (rows ?? []).filter((r) => {
       if (filter !== 'todos' && r.status !== filter) return false;
       if (!term) return true;
       return (
         r.customerName.toLowerCase().includes(term) ||
-        (r.vehiclePlate ?? '').toLowerCase().includes(term) ||
+        (plateTerm !== '' && normalizePlate(r.vehiclePlate ?? '').includes(plateTerm)) ||
         (r.vehicleModel ?? '').toLowerCase().includes(term) ||
         String(r.number).includes(term)
       );
     });
   }, [rows, search, filter]);
 
+  if (!rows && loadError) {
+    return (
+      <div className="card">
+        <h1>Não foi possível carregar os orçamentos</h1>
+        <p className="muted">Confira sua conexão e tente novamente.</p>
+        <button className="btn" onClick={retry}>Tentar novamente</button>
+      </div>
+    );
+  }
   if (!rows) return <Spinner />;
 
   return (

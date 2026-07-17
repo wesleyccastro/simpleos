@@ -69,3 +69,16 @@ export interface Quote {
   createdAt: string;
   items: QuoteItem[];
 }
+
+export interface QuotePayload {
+  customerName: string;
+  customerPhone: string | null;
+  vehicleModel: string | null;
+  vehiclePlate: string | null;
+  vehicleKm: number | null;
+  discountCents: number;
+  paymentTerms: PaymentTerms;
+  notes: string | null;
+  totalCents: number;
+  items: { description: string; quantity: number; unitPriceCents: number }[];
+}

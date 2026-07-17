@@ -8,6 +8,14 @@
 
 **Tech Stack:** React 18, Vite 5, TypeScript 5, react-router-dom 6, @supabase/supabase-js 2, pdfmake 0.2, Vitest 2.
 
+## Estado atual (revisão de 2026-07-16)
+
+- As Tasks 1–16 possuem implementação e commits correspondentes. As caixas abaixo foram preservadas como registro do roteiro original, não como indicador do estado atual.
+- A revisão posterior adicionou `0002_quote_integrity.sql` (constraints e RPCs transacionais) e `0003_api_privileges.sql` (privilégios mínimos da Data API).
+- Também foram implementados: validação de domínio, formatação de placa, exibição da última parcela, recuperação de erros/sessão e carregamento sob demanda do PDF.
+- Validação local atual: testes unitários e build aprovados.
+- Pendente por depender de infraestrutura externa: aplicar as migrations e executar o checklist manual com duas contas em um projeto Supabase real.
+
 ## Global Constraints
 
 - Todo texto de UI em **pt-BR**, simples e direto (usuários leigos).

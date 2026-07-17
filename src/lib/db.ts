@@ -1,6 +1,9 @@
 import { fromCents, toCents } from './money';
+import { assertValidQuotePayload } from './quoteValidation';
 import { supabase } from './supabaseClient';
-import type { CatalogItem, Company, PaymentTerms, PublicCompany, Quote, QuoteStatus } from './types';
+import type { CatalogItem, Company, PaymentTerms, PublicCompany, Quote, QuotePayload, QuoteStatus } from './types';
+
+export type { QuotePayload } from './types';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -38,6 +41,10 @@ export async function createCompany(name: string): Promise<Company> {
 }
 
 export async function updateCompany(id: string, patch: Partial<Company>): Promise<Company> {
+  if (patch.name !== undefined && !patch.name.trim()) throw new Error('Informe o nome da oficina.');
+  if (patch.quoteValidityDays !== undefined && (!Number.isInteger(patch.quoteValidityDays) || patch.quoteValidityDays < 1)) {
+    throw new Error('A validade precisa ser de pelo menos um dia.');
+  }
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.document !== undefined) row.document = patch.document;
@@ -86,6 +93,10 @@ export async function saveCatalogItem(
   companyId: string,
   item: { id?: string; kind: 'produto' | 'servico'; description: string; defaultPriceCents: number },
 ): Promise<void> {
+  if (!item.description.trim()) throw new Error('Informe a descrição do item.');
+  if (!Number.isInteger(item.defaultPriceCents) || item.defaultPriceCents < 0) {
+    throw new Error('O preço não pode ser negativo.');
+  }
   const row = {
     company_id: companyId,
     kind: item.kind,
@@ -167,19 +178,6 @@ export async function getQuote(id: string): Promise<Quote> {
   return rowToQuote(data, data.quote_items ?? []);
 }
 
-export interface QuotePayload {
-  customerName: string;
-  customerPhone: string | null;
-  vehicleModel: string | null;
-  vehiclePlate: string | null;
-  vehicleKm: number | null;
-  discountCents: number;
-  paymentTerms: PaymentTerms;
-  notes: string | null;
-  totalCents: number;
-  items: { description: string; quantity: number; unitPriceCents: number }[];
-}
-
 function payloadToQuoteRow(p: QuotePayload): Record<string, unknown> {
   return {
     customer_name: p.customerName,
@@ -194,10 +192,8 @@ function payloadToQuoteRow(p: QuotePayload): Record<string, unknown> {
   };
 }
 
-function payloadToItemRows(quoteId: string, companyId: string, p: QuotePayload) {
+function payloadToRpcItemRows(p: QuotePayload) {
   return p.items.map((it, i) => ({
-    quote_id: quoteId,
-    company_id: companyId,
     description: it.description,
     quantity: it.quantity,
     unit_price: fromCents(it.unitPriceCents),
@@ -206,30 +202,27 @@ function payloadToItemRows(quoteId: string, companyId: string, p: QuotePayload) 
 }
 
 export async function createQuote(companyId: string, p: QuotePayload): Promise<Quote> {
-  const { data: num, error: numErr } = await supabase.rpc('take_quote_number', { p_company_id: companyId });
-  if (numErr) throw numErr;
-  const { data: quoteRow, error } = await supabase
-    .from('quotes')
-    .insert({ ...payloadToQuoteRow(p), company_id: companyId, number: num })
-    .select()
-    .single();
+  assertValidQuotePayload(p);
+  const { data, error } = await supabase.rpc('create_quote_with_items', {
+    p_company_id: companyId,
+    p_quote: payloadToQuoteRow(p),
+    p_items: payloadToRpcItemRows(p),
+  });
   if (error) throw error;
-  const itemRows = payloadToItemRows(quoteRow.id, companyId, p);
-  const { error: itemsErr } = await supabase.from('quote_items').insert(itemRows);
-  if (itemsErr) {
-    await supabase.from('quotes').delete().eq('id', quoteRow.id);
-    throw itemsErr;
-  }
-  return rowToQuote(quoteRow, itemRows);
+  const result = data as { id?: string } | null;
+  if (!result?.id) throw new Error('O banco não retornou o orçamento criado.');
+  return getQuote(result.id);
 }
 
 export async function updateQuote(quoteId: string, companyId: string, p: QuotePayload): Promise<void> {
-  const { error } = await supabase.from('quotes').update(payloadToQuoteRow(p)).eq('id', quoteId);
+  assertValidQuotePayload(p);
+  const { error } = await supabase.rpc('update_quote_with_items', {
+    p_quote_id: quoteId,
+    p_company_id: companyId,
+    p_quote: payloadToQuoteRow(p),
+    p_items: payloadToRpcItemRows(p),
+  });
   if (error) throw error;
-  const { error: delErr } = await supabase.from('quote_items').delete().eq('quote_id', quoteId);
-  if (delErr) throw delErr;
-  const { error: insErr } = await supabase.from('quote_items').insert(payloadToItemRows(quoteId, companyId, p));
-  if (insErr) throw insErr;
 }
 
 export async function setQuoteStatus(id: string, status: QuoteStatus): Promise<void> {

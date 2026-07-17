@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ToastProvider } from './components/toast';
 import { Spinner } from './components/ui';
@@ -13,9 +13,26 @@ import QuoteWizard from './pages/QuoteWizard';
 import Settings from './pages/Settings';
 
 function Protected() {
-  const { session, company, loading } = useAuth();
+  const { session, company, companyError, loading, retryCompany } = useAuth();
+  const location = useLocation();
   if (loading) return <Spinner />;
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) {
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
+  if (companyError) {
+    return (
+      <div className="center-page">
+        <div className="card">
+          <h1>Não foi possível carregar sua oficina</h1>
+          <p className="muted">Confira sua conexão e tente novamente.</p>
+          <button className="btn" onClick={() => void retryCompany()}>
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!company) return <Onboarding />;
   return <Layout />;
 }

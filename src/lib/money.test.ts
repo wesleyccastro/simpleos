@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { calcSubtotal, calcTotal, formatBRL, fromCents, installments, lineSubtotal, toCents } from './money';
+import {
+  calcSubtotal,
+  calcTotal,
+  formatBRL,
+  formatInstallments,
+  fromCents,
+  installments,
+  lineSubtotal,
+  toCents,
+} from './money';
 
 // Intl usa espaço não separável (U+00A0) entre R$ e o valor
 const noNbsp = (s: string) => s.replace(/ /g, ' ');
@@ -36,6 +45,9 @@ describe('subtotais e total', () => {
     expect(calcTotal(10000, 1000)).toBe(9000);
     expect(calcTotal(10000, -500)).toBe(10500);
   });
+  it('nunca devolve total negativo', () => {
+    expect(calcTotal(500, 1000)).toBe(0);
+  });
 });
 
 describe('installments', () => {
@@ -51,5 +63,8 @@ describe('installments', () => {
   });
   it('rejeita contagem inválida', () => {
     expect(() => installments(10000, 0)).toThrow();
+  });
+  it('explica o ajuste de centavos na última parcela', () => {
+    expect(noNbsp(formatInstallments(10000, 3))).toBe('3x de R$ 33,33 (a última de R$ 33,34)');
   });
 });

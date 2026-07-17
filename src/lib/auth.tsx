@@ -7,16 +7,20 @@ import type { Company } from './types';
 interface AuthState {
   session: Session | null;
   company: Company | null;
+  companyError: boolean;
   loading: boolean;
   refreshCompany: () => Promise<void>;
+  retryCompany: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
   session: null,
   company: null,
+  companyError: false,
   loading: true,
   refreshCompany: async () => {},
+  retryCompany: async () => {},
   signOut: async () => {},
 });
 
@@ -24,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [company, setCompany] = useState<Company | null>(null);
+  const [companyError, setCompanyError] = useState(false);
   const [companyReady, setCompanyReady] = useState(false);
 
   useEffect(() => {
@@ -39,17 +44,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!sessionReady) return;
     if (!session) {
       setCompany(null);
+      setCompanyError(false);
       setCompanyReady(true);
       return;
     }
     let active = true;
     setCompanyReady(false);
+    setCompanyError(false);
     getMyCompany()
       .then((c) => {
         if (active) setCompany(c);
       })
       .catch(() => {
-        if (active) setCompany(null);
+        if (active) setCompanyError(true);
       })
       .finally(() => {
         if (active) setCompanyReady(true);
@@ -59,14 +66,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session, sessionReady]);
 
-  const refreshCompany = async () => setCompany(await getMyCompany());
+  const refreshCompany = async () => {
+    try {
+      setCompany(await getMyCompany());
+      setCompanyError(false);
+    } catch (error) {
+      setCompanyError(true);
+      throw error;
+    }
+  };
+  const retryCompany = async () => {
+    setCompanyReady(false);
+    try {
+      await refreshCompany();
+    } finally {
+      setCompanyReady(true);
+    }
+  };
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, company, loading: !sessionReady || !companyReady, refreshCompany, signOut }}
+      value={{
+        session,
+        company,
+        companyError,
+        loading: !sessionReady || !companyReady,
+        refreshCompany,
+        retryCompany,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
